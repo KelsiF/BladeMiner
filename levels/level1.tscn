@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://xyljky14f7db"]
+
+[ext_resource type="PackedScene" uid="uid://dpot25yy1g360" path="res://objects/player.tscn" id="1_g2h75"]
+[ext_resource type="Script" uid="uid://cbnkwsw8s07xq" path="res://scripts/lvl1.gd" id="1_m7ahb"]
+[ext_resource type="PackedScene" uid="uid://bv6o5ib0xhwxn" path="res://objects/rock.tscn" id="2_wwpf4"]
+[ext_resource type="PackedScene" uid="uid://no5j5yntqrso" path="res://scenes/hud.tscn" id="4_dwgg1"]
+
+[node name="Node2D" type="Node2D" unique_id=2062853324]
+script = ExtResource("1_m7ahb")
+rock_scene = ExtResource("2_wwpf4")
+
+[node name="Player" parent="." unique_id=668687911 instance=ExtResource("1_g2h75")]
+position = Vector2(597, 364)
+knockback_force = 100.0
+knockback_duration = 0.5
+
+[node name="Rock" parent="." unique_id=88790037 instance=ExtResource("2_wwpf4")]
+position = Vector2(-210, 310)
+
+[node name="Hud" parent="." unique_id=499984905 instance=ExtResource("4_dwgg1")]
+visible = false

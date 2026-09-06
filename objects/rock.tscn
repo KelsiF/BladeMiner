@@ -1,0 +1,77 @@
+[gd_scene format=3 uid="uid://bv6o5ib0xhwxn"]
+
+[ext_resource type="Texture2D" uid="uid://c0tw54pk6sh2t" path="res://sprites/rock.png" id="1_d1bt4"]
+[ext_resource type="Script" uid="uid://beo1xndurapcr" path="res://scripts/rock.gd" id="1_dh84n"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_wrsvn"]
+radius = 11.0
+
+[sub_resource type="Curve" id="Curve_dh84n"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_lc31t"]
+colors = PackedColorArray(0.24719188, 0.2471919, 0.24719188, 1, 0.6872149, 0.68721503, 0.6872149, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dh84n"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0.8235294, 0, 0, 0.5764706)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+corner_detail = 6
+
+[node name="Rock" type="StaticBody2D" unique_id=88790037]
+scale = Vector2(2, 2)
+script = ExtResource("1_dh84n")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=2041022954]
+texture_filter = 1
+position = Vector2(-1, -2)
+texture = ExtResource("1_d1bt4")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1277687334]
+shape = SubResource("CircleShape2D_wrsvn")
+
+[node name="HealthLabel" type="Label" parent="." unique_id=259316297]
+visible = false
+offset_left = -21.5
+offset_top = -31.5
+offset_right = 24.5
+offset_bottom = -8.5
+text = "10/10"
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="." unique_id=1160812494]
+emitting = false
+amount = 20
+lifetime = 0.8
+one_shot = true
+explosiveness = 1.0
+emission_shape = 3
+emission_rect_extents = Vector2(11.08, 12.165)
+spread = 180.0
+gravity = Vector2(0, 500)
+initial_velocity_min = 120.0
+initial_velocity_max = 250.0
+angular_velocity_min = -360.0
+angular_velocity_max = 360.0
+damping_min = 30.0
+damping_max = 60.0
+scale_amount_min = 2.0
+scale_amount_max = 20.0
+scale_amount_curve = SubResource("Curve_dh84n")
+color_ramp = SubResource("Gradient_lc31t")
+
+[node name="HealthBar" type="ProgressBar" parent="." unique_id=725812642]
+offset_left = -8.0
+offset_top = -20.0
+offset_right = 56.0
+offset_bottom = 7.0
+scale = Vector2(0.25, 0.25)
+theme_override_styles/fill = SubResource("StyleBoxFlat_dh84n")
+value = 9.64
+show_percentage = false
