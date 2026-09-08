@@ -19,7 +19,7 @@ const hp_multiplier = [1.0, 1.1, 1.2, 1.3, 1.4] # множитель в зави
 
 var forced_type: int = -1
 var type
-
+@onready var damage_particle = $DamageRock
 
 
 @export var max_health: float = 10
@@ -44,17 +44,58 @@ func _process(delta: float) -> void:
 	$HealthBar.max_value = max_health
 	$HealthBar.value = health
 
+func damage_text(amount: float, is_crit: bool = false):
+	var container := HBoxContainer.new()
+	container.z_index = 100
+	container.add_theme_constant_override("separation", 4)
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	if is_crit:
+		var icon := TextureRect.new()
+		icon.texture = preload("res://sprites/rock.png")
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.custom_minimum_size = Vector2(28, 28)
+		container.add_child(icon)
+	
+	
+	var label := Label.new()
+	label.text = str(amount)
+	label.z_index = 100
+	
+	label.add_theme_font_size_override("font_size", 24 if not is_crit else 32)
+	label.add_theme_color_override("font_color", Color.RED if is_crit else Color.WHITE)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 4)
+	label.add_theme_font_override("font",preload("res://fonts/montserrat.bold.ttf"))
+	container.add_child(label)
+		
+	get_tree().current_scene.add_child(container)
+	container.global_position = global_position + Vector2(randf_range(-15, 15), -20)
+	
+	var tween := label.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(container, "global_position:y", label.global_position.y - 40, 0.8)
+	tween.tween_property(container, "modulate:a", 0.0, 0.8).set_delay(0.2)
+	tween.chain().tween_callback(container.queue_free)
+	
+
 func take_damage(amount: int) -> void:
 	
 	var chance = randf_range(0.00, 1.00)
 	
 	if chance <= Main.chance_crit:
-		health -= amount*Main.crit_multiplier
+		var crit_damage = amount*Main.crit_multiplier
+		health -= crit_damage
 		health = max(health, 0)
 		print("CRIT")
+		damage_text(crit_damage, true)
+		#тут партикл критов
 	else:
 		health -= amount
 		health = max(health, 0)
+		damage_particle.emitting = true
+		damage_text(amount, false)
+	print("damage: " + str(amount))
 	shake()
 	
 
@@ -62,7 +103,7 @@ func take_damage(amount: int) -> void:
 
 	if health <= 0:
 		
-		var particles = $CPUParticles2D
+		var particles = $BreakRock
 		
 		remove_child(particles)
 		get_parent().add_child(particles)
