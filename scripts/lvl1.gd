@@ -22,7 +22,10 @@ func _ready() -> void:
 	Main.need_rocks = rock_count
 	Main.current_level = 1
 	
-	Main.generate_rocks(rock_count)
+	var points: Array = []
+	for marker in get_tree().get_nodes_in_group("rock_spawn"):
+		points.append(marker.global_position)
+	Main.generate_rocks(rock_count, points, self)
 
 func _process(delta: float) -> void:
 	finish_level()
@@ -32,3 +35,4 @@ func finish_level():
 	
 	if destroyed_rocks >= rock_count:
 		Main.game_active = false
+		print("game_active = " + str(Main.game_active) + "\ndestroyed_rocks = " + str(Main.destroyed_rocks) + "\nrock_count = " + str(rock_count))

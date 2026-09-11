@@ -20,7 +20,7 @@ var getted_money = 0
 var game_active = true
 
 # variables for generate rocks
-var rock_scene = "res://objects/rock.tscn"
+const rock_scene: PackedScene = preload("res://objects/rock.tscn")
 
 var rocks_positions: Array[Vector2] = []
 var max_attempts: int = 30
@@ -50,29 +50,32 @@ func load_next_level() -> void:
 func restart_level() -> void:
 	get_tree().reload_current_scene()
 
-func generate_rocks(count: int):
-	var viewport = get_viewport().get_visible_rect().size
-	for i in count:
+func is_on_wall(wall_tilemap: TileMapLayer, pos: Vector2) -> bool:
+	var cell = wall_tilemap.local_to_map(wall_tilemap.to_local(pos))
+	var source_id = wall_tilemap.get_cell_source_id(cell)
+	return source_id != -1
+
+
+func generate_rocks(count: int, spawn_points: Array, parent: Node) -> void:
+	rocks_positions.clear()
+
+	if spawn_points.is_empty():
+		push_warning("Нет точек спавна для камней")
+		return
+
+	var available_points = spawn_points.duplicate()
+	available_points.shuffle()
+
+	var spawn_count = min(count, available_points.size())
+
+	for i in spawn_count:
+		var point_pos = available_points[i]
+
 		var rock = rock_scene.instantiate()
-		
-		var spawn_pos = Vector2.ZERO
-		var valid_pos = false
-		var attempts = 0
-		
-		while not valid_pos and attempts < max_attempts:
-			spawn_pos = Vector2(
-				randf_range(rock_radius, viewport.x - rock_radius),
-				randf_range(rock_radius, viewport.y - rock_radius)
-			)
-			
-			valid_pos = true
-			for existing_pos in rocks_positions:
-				if spawn_pos.distance_to(existing_pos) < min_distance:
-					valid_pos = false
-					break
-			
-			attempts += 1
-		
-		rock.position = spawn_pos
-		rocks_positions.append(spawn_pos)
-		add_child(rock)
+		rock.z_index = 1
+		rock.position = point_pos
+		rock.add_to_group("rock")
+		rocks_positions.append(point_pos)
+		parent.add_child(rock)
+
+	print("Заспавнено камней: ", spawn_count, " / ", count, " (доступно точек: ", available_points.size(), ")")
