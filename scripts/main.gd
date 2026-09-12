@@ -4,13 +4,56 @@ const LEVEL_PATH_TEMPLATE = "res://levels/level%d.tscn"
 var current_level = 1
 
 var damage = 10.0
-var health = 30.0
 var max_health = 30.0
 var chance_crit = 0.025
 var crit_multiplier = 1.25
 var move_speed = 300.0
 var money_multiplier = 1.0
 var money = 0.0
+
+# --- Убывающая полезность для процентных баффов (шанс крита, урон
+# крита, доход). Раньше каждый бафф прибавлял/умножал на фиксированный
+# номинальный %, из-за чего поздние покупки были так же сильны, как
+# первые, а сами значения после многих сложений/умножений float
+# расползались в "мусорные" хвосты вроде 1.158289417941.
+#
+# CRIT_CHANCE_CAP - шанс крита не может расти бесконечно (это
+# вероятность), поэтому у него честный потолок, и прирост тем меньше,
+# чем ближе текущий шанс к этому потолку (асимптота).
+#
+# *_DIMINISH_K - для множителей без потолка (money_multiplier,
+# crit_multiplier) используем другую идею: чем больше бонус уже
+# накоплен сверх базового значения (1.0), тем слабее по факту
+# срабатывает очередной такой же номинальный %. K регулирует, насколько
+# быстро наступает "убывание" - чем больше K, тем быстрее.
+#
+# STAT_ROUND_STEP - шаг округления результата. Не влияет на сам смысл
+# формулы, а просто не даёт float-погрешностям накапливаться в дробях
+# на 12+ знаков после запятой.
+const CRIT_CHANCE_CAP: float = 0.75
+const CRIT_DAMAGE_DIMINISH_K: float = 1.0
+const MONEY_MULT_DIMINISH_K: float = 1.0
+const STAT_ROUND_STEP: float = 0.0001
+
+# Применяется к величинам с честным потолком (сейчас - только chance_crit).
+# raw_fraction - номинальный прирост в долях (например, 0.10 для +10%).
+# Чем ближе current к cap, тем меньше реальный прирост - на самом cap
+# прирост равен нулю, значение никогда его не превышает.
+func apply_diminishing_bonus_capped(current: float, cap: float, raw_fraction: float) -> float:
+	var new_value = current + raw_fraction * (cap - current)
+	new_value = clamp(new_value, 0.0, cap)
+	return snappedf(new_value, STAT_ROUND_STEP)
+
+# Применяется к множителям без потолка вида "1.0 + бонус" (money_multiplier,
+# crit_multiplier). Реальный прирост делится на (1 + уже_накопленный_бонус * k),
+# так что один и тот же номинальный % даёт всё меньше пользы по мере роста
+# характеристики - первая покупка почти не отличается от старой формулы,
+# а десятая уже ощутимо слабее.
+func apply_diminishing_multiplier(current: float, raw_fraction: float, k: float) -> float:
+	var current_bonus = current - 1.0
+	var increment = raw_fraction / (1.0 + current_bonus * k)
+	var new_bonus = current_bonus + increment
+	return snappedf(1.0 + new_bonus, STAT_ROUND_STEP)
 
 
 var need_rocks = 15
@@ -19,6 +62,8 @@ var destroyed_rocks = 0
 var getted_money = 0
 
 var game_active = true
+
+var debugstats_label := Label.new()
 
 # variables for generate rocks
 const rock_scene: PackedScene = preload("res://objects/rock.tscn")
@@ -62,7 +107,6 @@ func restart_level() -> void:
 	# "замороженным" из-за game_active == false.
 	game_active = true
 	get_tree().reload_current_scene()
-
 
 func generate_rocks(count: int, parent: Node2D, zone: ReferenceRect) -> void:
 

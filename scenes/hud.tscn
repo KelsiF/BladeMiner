@@ -6,11 +6,13 @@
 [ext_resource type="PackedScene" uid="uid://dhcdbas68h8y7" path="res://scenes/UpgradeCard.tscn" id="4_6fi6k"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5ysmq"]
-bg_color = Color(2.5121997e-06, 0.0022424087, 0.029473187, 0.43529412)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
+bg_color = Color(0.07058824, 0.078431375, 0.10980392, 1)
+corner_radius_top_left = 25
+corner_radius_top_right = 25
+corner_radius_bottom_right = 25
+corner_radius_bottom_left = 25
+expand_margin_left = 10.0
+expand_margin_right = 10.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_oo0fn"]
 bg_color = Color(0, 0, 0, 0.48235294)
@@ -155,6 +157,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 64.665)
 layout_mode = 2
 size_flags_vertical = 1
+theme_override_fonts/font = ExtResource("3_5ysmq")
 text = "  Осталось камней: "
 vertical_alignment = 1
 
@@ -166,6 +169,7 @@ size_flags_vertical = 0
 [node name="LevelProgress_Label" type="Label" parent="HUD/HBoxContainer/VBoxContainer" unique_id=1644447000]
 layout_mode = 2
 size_flags_vertical = 1
+theme_override_fonts/font = ExtResource("3_5ysmq")
 text = "{level}"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -187,6 +191,7 @@ theme_override_constants/separation = 16
 [node name="Money" type="Label" parent="HUD/HBoxContainer/VBoxContainer3" unique_id=722272685]
 layout_mode = 2
 size_flags_vertical = 0
+theme_override_fonts/font = ExtResource("3_5ysmq")
 text = "Монет: "
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -194,6 +199,7 @@ vertical_alignment = 1
 [node name="Damage" type="Label" parent="HUD/HBoxContainer/VBoxContainer3" unique_id=771147776]
 layout_mode = 2
 size_flags_vertical = 0
+theme_override_fonts/font = ExtResource("3_5ysmq")
 text = "Урон: "
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -224,6 +230,7 @@ theme_override_constants/separation = 20
 [node name="TitleLabel" type="Label" parent="LevelCompleteUI/MainPanel/VBoxContainer" unique_id=8648643]
 custom_minimum_size = Vector2(0, 85.07)
 layout_mode = 2
+theme_override_fonts/font = ExtResource("3_5ysmq")
 theme_override_font_sizes/font_size = 32
 text = "Уровень пройден!"
 horizontal_alignment = 1
@@ -251,10 +258,12 @@ texture = ExtResource("2_oo0fn")
 [node name="TextLabel" type="Label" parent="LevelCompleteUI/MainPanel/VBoxContainer/MarginContainer/StatsPanel/StatsGrid/RocksDestroyed" unique_id=1566710079]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("3_5ysmq")
 text = "Камней уничтожено:"
 
 [node name="ValueLabel" type="Label" parent="LevelCompleteUI/MainPanel/VBoxContainer/MarginContainer/StatsPanel/StatsGrid/RocksDestroyed" unique_id=1773827220]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("3_5ysmq")
 text = "37"
 horizontal_alignment = 2
 
@@ -268,10 +277,12 @@ texture = ExtResource("2_oo0fn")
 [node name="TextLabel" type="Label" parent="LevelCompleteUI/MainPanel/VBoxContainer/MarginContainer/StatsPanel/StatsGrid/MoneyGet" unique_id=2051466688]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_fonts/font = ExtResource("3_5ysmq")
 text = "Монет получено:"
 
 [node name="ValueLabel" type="Label" parent="LevelCompleteUI/MainPanel/VBoxContainer/MarginContainer/StatsPanel/StatsGrid/MoneyGet" unique_id=933506659]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("3_5ysmq")
 text = "1250"
 horizontal_alignment = 2
 
@@ -279,13 +290,13 @@ horizontal_alignment = 2
 custom_minimum_size = Vector2(220, 40)
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_fonts/font = ExtResource("3_5ysmq")
 theme_override_styles/normal = SubResource("StyleBoxFlat_047uy")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_5pdws")
 theme_override_styles/hover = SubResource("StyleBoxFlat_hd3ao")
 text = "ПРОДОЛЖИТЬ"
 
 [node name="UpgradeScreen" type="Control" parent="." unique_id=127057644]
-visible = false
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -364,13 +375,32 @@ layout_mode = 2
 [node name="RerollCenter" type="CenterContainer" parent="UpgradeScreen/MainPanel/ContentMargin/MainVBox" unique_id=1763176387]
 layout_mode = 2
 
-[node name="RerollButton" type="Button" parent="UpgradeScreen/MainPanel/ContentMargin/MainVBox/RerollCenter" unique_id=335402475]
+[node name="ActionsHBox" type="HBoxContainer" parent="UpgradeScreen/MainPanel/ContentMargin/MainVBox/RerollCenter" unique_id=1824830658]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="RerollButton" type="Button" parent="UpgradeScreen/MainPanel/ContentMargin/MainVBox/RerollCenter/ActionsHBox" unique_id=335402475]
 custom_minimum_size = Vector2(180, 44)
 layout_mode = 2
+theme_override_fonts/font = ExtResource("3_5ysmq")
 theme_override_styles/normal = SubResource("StyleBoxFlat_mphia")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_0m4u7")
 theme_override_styles/hover = SubResource("StyleBoxFlat_apjy4")
 text = "⟲ REROLL (1)"
 
+[node name="SkipButton" type="Button" parent="UpgradeScreen/MainPanel/ContentMargin/MainVBox/RerollCenter/ActionsHBox" unique_id=714608939]
+custom_minimum_size = Vector2(180, 44)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_styles/normal = SubResource("StyleBoxFlat_mphia")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0m4u7")
+theme_override_styles/hover = SubResource("StyleBoxFlat_apjy4")
+text = "ПРОПУСТИТЬ"
+
+[node name="DebugLabel" type="Label" parent="." unique_id=1543065733]
+offset_right = 219.0
+offset_bottom = 300.0
+
 [connection signal="pressed" from="LevelCompleteUI/MainPanel/VBoxContainer/ContinueButton" to="." method="_on_continue_button_pressed"]
-[connection signal="pressed" from="UpgradeScreen/MainPanel/ContentMargin/MainVBox/RerollCenter/RerollButton" to="." method="_on_reroll_button_pressed"]
+[connection signal="pressed" from="UpgradeScreen/MainPanel/ContentMargin/MainVBox/RerollCenter/ActionsHBox/RerollButton" to="." method="_on_reroll_button_pressed"]
+[connection signal="pressed" from="UpgradeScreen/MainPanel/ContentMargin/MainVBox/RerollCenter/ActionsHBox/SkipButton" to="." method="_on_skip_button_pressed"]

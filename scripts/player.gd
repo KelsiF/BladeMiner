@@ -15,6 +15,18 @@ var knockback_velocity: Vector2 = Vector2.ZERO
 var knockback_timer: float = 0.0
 var damage_timers: Dictionary = {} # instance_id камня -> оставшееся время кулдауна
 
+var health: float
+var max_health: float
+
+func _ready() -> void:
+	max_health = Main.max_health
+	health = max_health
+	
+	$HealthBar.max_value = max_health
+	$HealthBar.value = health
+
+func _process(delta: float) -> void:
+	$HealthBar.value = health
 
 func _physics_process(delta: float) -> void:
 	var mouse_pos: Vector2 = get_global_mouse_position()

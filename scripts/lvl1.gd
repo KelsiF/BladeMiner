@@ -12,9 +12,12 @@ var min_distance: float = rock_radius * 2.0
 
 func _ready() -> void:
 	
-	rock_count = (5+Main.current_level)*1.25
+	# (5+level)*1.25 даёт дробное число - раньше оно молча/небезопасно
+	# присваивалось typed int-переменной (rock_count: int), из-за чего
+	# либо терялась дробная часть непредсказуемым образом, либо GDScript
+	# ругался на сужающее преобразование float -> int. Явно округляем.
+	rock_count = int(round((5+Main.current_level)*1.25))
 	
-	print(rock_count)
 	
 	Main.destroyed_rocks = 0
 	Main.getted_money = 0
@@ -37,4 +40,3 @@ func finish_level():
 	
 	if destroyed_rocks >= rock_count:
 		Main.game_active = false
-		print("game_active = " + str(Main.game_active) + "\ndestroyed_rocks = " + str(Main.destroyed_rocks) + "\nrock_count = " + str(rock_count))
