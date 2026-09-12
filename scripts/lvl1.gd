@@ -20,12 +20,14 @@ func _ready() -> void:
 	Main.getted_money = 0
 	Main.left_rocks = rock_count
 	Main.need_rocks = rock_count
-	Main.current_level = 1
+	# Main.current_level здесь раньше жёстко выставлялся в 1 - это
+	# затирало правильный номер уровня, который уже успел выставить
+	# Main.load_level()/load_next_level() ДО загрузки этой сцены.
+	# Из-за этого HUD всегда показывал "1 Уровень", а следующий вызов
+	# rock_count = (5 + Main.current_level) * 1.25 на новом уровне
+	# считался так, будто мы всё ещё на первом уровне.
 	
-	var points: Array = []
-	for marker in get_tree().get_nodes_in_group("rock_spawn"):
-		points.append(marker.global_position)
-	Main.generate_rocks(rock_count, points, self)
+	Main.generate_rocks(rock_count, get_tree().current_scene, $SpawnZone)
 
 func _process(delta: float) -> void:
 	finish_level()

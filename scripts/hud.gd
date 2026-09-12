@@ -33,14 +33,17 @@ func see_levelcomplete():
 	if Main.game_active == false:
 		if on_continue == false:
 			$LevelCompleteUI/MainPanel/VBoxContainer/MarginContainer/StatsPanel/StatsGrid/RocksDestroyed/ValueLabel.text = str(Main.destroyed_rocks)
-			$LevelCompleteUI/MainPanel/VBoxContainer/MarginContainer/StatsPanel/StatsGrid/MoneyGet/ValueLabel.text = "1"
+			# Было захардкожено "1" вместо реально заработанных за уровень
+			# монет (Main.getted_money уже считается в rock.gd).
+			$LevelCompleteUI/MainPanel/VBoxContainer/MarginContainer/StatsPanel/StatsGrid/MoneyGet/ValueLabel.text = str(Main.getted_money)
 			$LevelCompleteUI.show()
 
 
 func _on_continue_button_pressed() -> void:
-	$LevelCompleteUI.hide()
-	$UpgradeScreen.show()
-	on_continue = true
+	if Main.game_active == false:
+		$LevelCompleteUI.hide()
+		$UpgradeScreen.show()
+		on_continue = true
 
 
 func _on_reroll_button_pressed() -> void:

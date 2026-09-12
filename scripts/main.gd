@@ -4,7 +4,8 @@ const LEVEL_PATH_TEMPLATE = "res://levels/level%d.tscn"
 var current_level = 1
 
 var damage = 10.0
-var max_health = 200.0
+var health = 30.0
+var max_health = 30.0
 var chance_crit = 0.025
 var crit_multiplier = 1.25
 var move_speed = 300.0
@@ -35,19 +36,31 @@ func _process(delta: float) -> void:
 		restart_level()
 
 func load_level(level_num: int):
-	current_level = level_num
 	var full_path = LEVEL_PATH_TEMPLATE % level_num
-	
+
 	if ResourceLoader.exists(full_path):
+		current_level = level_num
+		# Новый уровень должен стартовать "активным" - иначе HUD увидит
+		# game_active == false (оставшееся от прошлого уровня) и сразу
+		# покажет экран завершения уровня, а игрок будет заморожен
+		# (player.gd двигается только пока Main.game_active == true).
+		game_active = true
 		get_tree().change_scene_to_file(full_path)
 	else:
 		print("Ошибка: Уровень ", level_num, " не найден по пути ", full_path)
 
 func load_next_level() -> void:
+	# load_level() уже выставляет current_level = level_num внутри себя,
+	# поэтому дополнительный "current_level += 1" здесь был лишним и
+	# приводил к тому, что номер уровня перескакивал на 2 (например,
+	# после 1-го уровня current_level становился 3, а не 2).
 	load_level(current_level + 1)
-	current_level += 1
 
 func restart_level() -> void:
+	# Рестарт должен возвращать игру в активное состояние, иначе после
+	# рестарта на уже завершённом уровне игрок снова окажется
+	# "замороженным" из-за game_active == false.
+	game_active = true
 	get_tree().reload_current_scene()
 
 
