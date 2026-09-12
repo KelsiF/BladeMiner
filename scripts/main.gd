@@ -50,32 +50,66 @@ func load_next_level() -> void:
 func restart_level() -> void:
 	get_tree().reload_current_scene()
 
-func is_on_wall(wall_tilemap: TileMapLayer, pos: Vector2) -> bool:
-	var cell = wall_tilemap.local_to_map(wall_tilemap.to_local(pos))
-	var source_id = wall_tilemap.get_cell_source_id(cell)
-	return source_id != -1
 
+func generate_rocks(count: int, parent: Node2D, zone: ReferenceRect) -> void:
 
-func generate_rocks(count: int, spawn_points: Array, parent: Node) -> void:
+	# Список позиций - переменная автозагрузки Main, она переживает
+	# смену/перезапуск уровня. Если не чистить её перед новой генерацией,
+	# камни прошлого уровня будут "мешать" новым и генерация со временем
+	# сломается. Очищаем перед каждым вызовом.
 	rocks_positions.clear()
 
-	if spawn_points.is_empty():
-		push_warning("Нет точек спавна для камней")
-		return
+	# ReferenceRect - это Control, а Control.position - это координаты
+	# внутри родителя-Control. Так как SpawnZone лежит в дереве под Node2D,
+	# надёжнее брать global_position/size: это всегда реальные границы
+	# зоны в мировых координатах, независимо от того, что у неё за родитель.
+	var zone_global_pos: Vector2 = zone.global_position
+	var zone_size: Vector2 = zone.size
 
-	var available_points = spawn_points.duplicate()
-	available_points.shuffle()
+	# Отступ от края зоны, чтобы камень (с учётом его радиуса) не вылезал
+	# за пределы SpawnZone. rock_radius УЖЕ включает в себя rock_scale
+	# (см. объявление переменной выше), поэтому здесь его больше
+	# не умножаем на rock_scale повторно - раньше это раздувало отступ
+	# почти в 2.4 раза и при небольшой зоне ломало randf_range.
+	var margin: float = rock_radius
 
-	var spawn_count = min(count, available_points.size())
+	# Область внутри зоны, в которой реально можно ставить центр камня.
+	var usable_size: Vector2 = zone_size - Vector2(margin, margin) * 2.0
 
-	for i in spawn_count:
-		var point_pos = available_points[i]
+	# Подстраховка: если зона меньше, чем нужный отступ, не даём
+	# usable_size уйти в минус (иначе randf_range получит min > max).
+	usable_size.x = max(usable_size.x, 0.0)
+	usable_size.y = max(usable_size.y, 0.0)
 
+	for i in count:
 		var rock = rock_scene.instantiate()
-		rock.z_index = 1
-		rock.position = point_pos
-		rock.add_to_group("rock")
-		rocks_positions.append(point_pos)
-		parent.add_child(rock)
 
-	print("Заспавнено камней: ", spawn_count, " / ", count, " (доступно точек: ", available_points.size(), ")")
+		var spawn_pos_global: Vector2 = Vector2.ZERO
+		var valid_pos: bool = false
+		var attempts: int = 0
+
+		while not valid_pos and attempts < max_attempts:
+			# Точка внутри SpawnZone: от левого-верхнего угла зоны (+margin)
+			# и до правого-нижнего (-margin).
+			spawn_pos_global = zone_global_pos + Vector2(margin, margin) + Vector2(
+				randf_range(0.0, usable_size.x),
+				randf_range(0.0, usable_size.y)
+			)
+
+			valid_pos = true
+			for existing_pos in rocks_positions:
+				if spawn_pos_global.distance_to(existing_pos) < min_distance:
+					valid_pos = false
+					break
+
+			attempts += 1
+
+		rocks_positions.append(spawn_pos_global)
+
+		# rock добавляется как child именно в "parent", поэтому позицию
+		# нужно задавать в локальных координатах parent, а не в мировых.
+		# to_local() сам учтёт сдвиг/масштаб/поворот parent, если они есть.
+		rock.position = parent.to_local(spawn_pos_global)
+		rock.z_index = 1
+
+		parent.add_child(rock)
