@@ -105,12 +105,67 @@ func generate_procedural_level(level_num: int) -> Dictionary:
 
 	return {"rock_count": count, "weights": weights, "hp_extra": 1.0 + extra * 0.05}
 
+# --- Боссовые уровни: каждый BOSS_LEVEL_INTERVAL-й уровень (5, 10, 15,
+# 20, ...) - это не толпа камней, а маленький "отряд" из 1-4 очень
+# живучих ожившых камней с сильно повышенной денежной наградой за их
+# разрушение. Срабатывает НАД результатом get_level_data() - то есть
+# и для "сюжетных" уровней 5/10 из LEVELS выше, и для процедурных
+# эндлесс-уровней 15+, одним и тем же механизмом, без дублирования кода.
+const BOSS_LEVEL_INTERVAL: int = 5
+
+func is_boss_level(level_num: int) -> bool:
+	return level_num > 0 and level_num % BOSS_LEVEL_INTERVAL == 0
+
+# Веса типов для боссового уровня: выбираем ТОЛЬКО самый сильный из уже
+# разблокированных на этот номер уровня ожившых типов camня - те же
+# пороги, что и в "сюжете" выше (chaser с 5 уровня, thrower с 8, tank
+# с 9). Первый босс возможен только на 5 уровне (см. is_boss_level()),
+# поэтому ветка "else" ниже недостижима и оставлена лишь как подстраховка.
+func _boss_type_weights(level_num: int) -> Array:
+	if level_num >= 9:
+		return [0, 0, 0, 0, 0, 1] # alive_tank
+	elif level_num >= 8:
+		return [0, 0, 0, 0, 1, 0] # alive_thrower
+	elif level_num >= 5:
+		return [0, 0, 0, 1, 0, 0] # alive_chaser
+	return [0, 0, 1, 0, 0, 0]
+
+# Накладывает боссовые параметры поверх обычного "рецепта" уровня (data
+# уже скопирован в get_level_data() ниже, так что константы LEVELS этим
+# не портятся):
+#   rock_count  - маленький отряд вместо толпы: 1 на первом боссе (ур. 5),
+#                 +1 камень каждые два боссовых уровня, потолок 4;
+#   weights     - только сильнейший разблокированный ожившый тип;
+#   hp_extra    - заметно выше обычного и растёт с номером боссового
+#                 уровня, чтобы 25-й босс не ощущался так же легко, как 5-й;
+#   money_extra - множитель денежной награды (Main.level_money_multiplier_extra,
+#                 см. rock.gd::take_damage()), растёт вместе с hp_extra,
+#                 чтобы повышенная сложность боя окупалась добычей.
+func _apply_boss_overrides(data: Dictionary, level_num: int) -> Dictionary:
+	var boss_index: int = level_num / BOSS_LEVEL_INTERVAL # 5->1, 10->2, 15->3, ...
+
+	data.rock_count = min(1 + int((boss_index - 1) / 2), 4)
+	data.weights = _boss_type_weights(level_num)
+	data.hp_extra = 2.5 + 0.3 * (boss_index - 1)
+	data.money_extra = 3.0 + 0.5 * (boss_index - 1)
+
+	return data
+
 # Возвращает параметры уровня level_num: из ручной таблицы LEVELS, если
-# уровень входит в "сюжет", иначе - процедурно сгенерированные.
+# уровень входит в "сюжет", иначе - процедурно сгенерированные. Если
+# level_num - боссовый (is_boss_level()), эти базовые параметры
+# дополнительно переопределяются _apply_boss_overrides() выше.
 func get_level_data(level_num: int) -> Dictionary:
+	var data: Dictionary
 	if level_num >= 1 and level_num <= LEVELS.size():
-		return LEVELS[level_num - 1]
-	return generate_procedural_level(level_num)
+		data = LEVELS[level_num - 1].duplicate(true)
+	else:
+		data = generate_procedural_level(level_num)
+
+	if is_boss_level(level_num):
+		data = _apply_boss_overrides(data, level_num)
+
+	return data
 
 func _ready() -> void:
 	# Регистрируем себя в Main, чтобы Main.load_level()/load_next_level()/
@@ -137,6 +192,7 @@ func start_level(level_num: int) -> void:
 	# себе тип (weighted_random_index) и посчитать HP (level_hp_multiplier_extra).
 	Main.current_type_weights = level_data.weights
 	Main.level_hp_multiplier_extra = level_data.get("hp_extra", 1.0)
+	Main.level_money_multiplier_extra = level_data.get("money_extra", 1.0)
 
 	Main.destroyed_rocks = 0
 	Main.getted_money = 0

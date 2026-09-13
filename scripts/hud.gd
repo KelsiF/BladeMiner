@@ -50,7 +50,14 @@ func _process(delta: float) -> void:
 	
 	$HUD/HBoxContainer/VBoxContainer/LevelProgress.max_value = Main.need_rocks
 	$HUD/HBoxContainer/VBoxContainer/LevelProgress.value = Main.destroyed_rocks
-	$HUD/HBoxContainer/VBoxContainer/LevelProgress_Label.text = str(Main.current_level) + " Уровень" 
+
+	# Боссовые уровни (каждый 5-й, см. level.gd::is_boss_level()) помечаем
+	# прямо в подписи прогресса уровня, чтобы игрок понимал, почему на
+	# уровне внезапно 1-4 очень живучих камня вместо привычной толпы.
+	var level_label_text: String = str(Main.current_level) + " Уровень"
+	if Main.level_controller != null and Main.level_controller.is_boss_level(Main.current_level):
+		level_label_text += " — БОСС"
+	$HUD/HBoxContainer/VBoxContainer/LevelProgress_Label.text = level_label_text
 	
 	see_levelcomplete()
 	

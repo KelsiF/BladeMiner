@@ -400,7 +400,11 @@ func take_damage(amount: float) -> void:
 		# по ходу прохождения, но не зависит от того, сколько игрок уже
 		# успел накопить/потратить.
 		var level_bonus_multiplier: float = 1.0 + (Main.current_level - 1) * 0.15
-		var base_reward: float = rock_reward[type]*Main.money_multiplier
+		# level_money_multiplier_extra - доп. множитель поверх обычной награды,
+		# который level.gd выставляет для боссовых уровней (см.
+		# level.gd::_apply_boss_overrides()); на обычных уровнях равен 1.0
+		# и ни на что не влияет.
+		var base_reward: float = rock_reward[type]*Main.money_multiplier*Main.level_money_multiplier_extra
 		var additional_money: float = base_reward * randf_range(0.0, 0.5) * level_bonus_multiplier
 		var total_reward: float = base_reward + additional_money
 
