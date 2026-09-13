@@ -46,6 +46,17 @@ var price: int = 0
 
 func _ready() -> void:
 	get_tree().current_scene.get_node("Hud").reroll_signal.connect(reroll)
+
+	# Раньше карточка (как часть сцены уровня) пересоздавалась на каждом
+	# новом уровне, и roll() в _ready() автоматически давал свежий набор
+	# баффов на выбор. Теперь карточка одна на всю игру, поэтому без
+	# этой подписки игрок видел бы один и тот же бафф/редкость/цену на
+	# всех уровнях подряд, пока сам не нажмёт reroll (а рероллы к тому же
+	# ограничены).
+	Main.level_changed.connect(_on_level_changed)
+	roll()
+
+func _on_level_changed(_level_num: int) -> void:
 	roll()
 	
 

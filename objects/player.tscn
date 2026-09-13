@@ -24,6 +24,8 @@ radius = 13.0
 [node name="Player" type="CharacterBody2D" unique_id=668687911]
 scale = Vector2(2, 2)
 script = ExtResource("1_ykyjo")
+knockback_force = 100.0
+knockback_duration = 0.5
 
 [node name="HealthBar" type="ProgressBar" parent="." unique_id=92631413]
 offset_left = -11.0
@@ -48,3 +50,8 @@ position = Vector2(-1, 2)
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=1080063707]
 position = Vector2(1, -2)
 shape = SubResource("CircleShape2D_ykyjo")
+
+[node name="HealTimer" type="Timer" parent="." unique_id=1060296828]
+autostart = true
+
+[connection signal="timeout" from="HealTimer" to="." method="_on_heal_timer_timeout"]

@@ -1,9 +1,29 @@
 extends Node
 
-const LEVEL_PATH_TEMPLATE = "res://levels/level%d.tscn"
+# Раньше уровни лежали в отдельных сценах (res://levels/levelN.tscn) и
+# load_level() переключал сцену через change_scene_to_file(). Теперь игра
+# целиком живёт в одной сцене: "смена уровня" - это не смена сцены, а
+# просьба к текущему level.gd пересобрать себя с новыми параметрами.
+# level_controller - это и есть ссылка на активный level.gd, он
+# регистрирует себя сам в своём _ready().
+var level_controller: Node = null
+
+# Единая точка оповещения "начался новый уровень" для всех остальных
+# постоянных нод (игрок, HUD, карточки апгрейдов). Раньше они просто
+# пересоздавались вместе со сценой уровня и сами подтягивали актуальные
+# Main.max_health/Main.damage/и т.д. в своих _ready(). Теперь сцена одна,
+# эти ноды живут всё время игры, и без такого сигнала они бы навсегда
+# застряли на значениях, которые были на момент самого первого запуска.
+#
+# Сигнал висит именно на Main (autoload), а не на level.gd, потому что
+# автозагрузки Godot гарантированно готовы ДО _ready() любой ноды на
+# сцене - значит, подписка на Main.level_changed в _ready() игрока/HUD/
+# карточки сработает всегда, независимо от порядка их создания в дереве.
+signal level_changed(level_num: int)
+
 var current_level = 1
 
-var damage = 10.0
+var damage = 100.0
 var max_health = 30.0
 var chance_crit = 0.025
 var crit_multiplier = 1.25
@@ -56,6 +76,48 @@ func apply_diminishing_multiplier(current: float, raw_fraction: float, k: float)
 	return snappedf(1.0 + new_bonus, STAT_ROUND_STEP)
 
 
+# --- Параметры "ощущения" уровня, которые задаёт level.gd в start_level()
+# ПЕРЕД generate_rocks(). Раньше единственным способом менять сложность
+# уровня было количество камней (rock_count) - отсюда и ощущение
+# "+1 камень каждый уровень". Теперь level.gd может для каждого уровня
+# задать СОСТАВ камней (кто чаще выпадает) и их "жирность", не трогая
+# количество - боссовый уровень с 1-3 камнями и уровень-"рой" из 20+
+# слабых камней используют ровно один и тот же механизм.
+#
+# current_type_weights - веса для randi_range-замены: индексы
+# соответствуют type_rock в rock.gd (["default","strong","big",
+# "alive_chaser","alive_thrower","alive_tank"]).
+# Вес 0 значит "тип не выпадает вообще", не обязательно все 6 весов ненулевые.
+# Значение по умолчанию ниже фактически не используется - level.gd
+# перезаписывает current_type_weights в start_level() ДО первого спавна
+# камней на каждом уровне (см. LEVELS/generate_procedural_level в level.gd).
+var current_type_weights: Array = [1, 1, 1, 0, 0, 0]
+
+# Множитель поверх ОБЫЧНОЙ формулы прироста HP от уровня (см. rock.gd).
+# 1.0 - без изменений. Боссовые/элитные уровни задают тут значение выше
+# 1.0, чтобы конкретно этот уровень ощущался как "стена", даже если по
+# номеру уровня обычные камни ещё не должны были так закалиться.
+var level_hp_multiplier_extra: float = 1.0
+
+# Взвешенный выбор индекса типа камня. Если все веса нулевые (на всякий
+# случай, чтобы не сломать генерацию), откатываемся к равномерному выбору.
+func weighted_random_index(weights: Array) -> int:
+	var total: float = 0.0
+	for w in weights:
+		total += w
+
+	if total <= 0.0:
+		return randi_range(0, weights.size() - 1)
+
+	var r: float = randf_range(0.0, total)
+	var cumulative: float = 0.0
+	for i in weights.size():
+		cumulative += weights[i]
+		if r <= cumulative:
+			return i
+
+	return weights.size() - 1
+
 var need_rocks = 15
 var left_rocks = 15
 var destroyed_rocks = 0
@@ -76,44 +138,78 @@ var rock_scale: float = 2.375
 var rock_radius: float = (rock_size_px * rock_scale) / 2.0
 var min_distance: float = rock_radius * 2.0
 
+# Список заспавненных камней текущего уровня. Раньше он был не нужен,
+# потому что смена/перезапуск уровня перезагружала сцену и Godot сам
+# уничтожал все ноды. Теперь сцена одна и живёт постоянно, поэтому перед
+# генерацией нового набора камней старые нужно удалять руками -
+# см. clear_rocks().
+var spawned_rocks: Array[Node] = []
+
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("restart"):
 		restart_level()
 
-func load_level(level_num: int):
-	var full_path = LEVEL_PATH_TEMPLATE % level_num
+# level_num здесь - не путь к файлу, а просто номер уровня "сюжета".
+# Реального перехода между сценами больше нет: мы обновляем current_level
+# и просим level_controller (level.gd на сцене) пересобрать уровень на
+# месте - обнулить прогресс и заспавнить новый набор камней под новую
+# сложность.
+func load_level(level_num: int) -> void:
+	if level_controller == null:
+		print("Ошибка: level_controller не назначен - level.gd не зарегистрировался в Main")
+		return
 
-	if ResourceLoader.exists(full_path):
-		current_level = level_num
-		# Новый уровень должен стартовать "активным" - иначе HUD увидит
-		# game_active == false (оставшееся от прошлого уровня) и сразу
-		# покажет экран завершения уровня, а игрок будет заморожен
-		# (player.gd двигается только пока Main.game_active == true).
-		game_active = true
-		get_tree().change_scene_to_file(full_path)
-	else:
-		print("Ошибка: Уровень ", level_num, " не найден по пути ", full_path)
+	current_level = level_num
+	# Новый уровень должен стартовать "активным" - иначе HUD увидит
+	# game_active == false (оставшееся от прошлого уровня) и сразу
+	# покажет экран завершения уровня, а игрок будет заморожен
+	# (player.gd двигается только пока Main.game_active == true).
+	game_active = true
+
+	level_controller.start_level(current_level)
+	level_changed.emit(current_level)
 
 func load_next_level() -> void:
-	# load_level() уже выставляет current_level = level_num внутри себя,
-	# поэтому дополнительный "current_level += 1" здесь был лишним и
-	# приводил к тому, что номер уровня перескакивал на 2 (например,
-	# после 1-го уровня current_level становился 3, а не 2).
 	load_level(current_level + 1)
 
 func restart_level() -> void:
-	# Рестарт должен возвращать игру в активное состояние, иначе после
-	# рестарта на уже завершённом уровне игрок снова окажется
-	# "замороженным" из-за game_active == false.
-	game_active = true
-	get_tree().reload_current_scene()
+	# Раньше рестарт делал reload_current_scene(), сейчас сцена не
+	# перезагружается - вместо этого просто пересобираем текущий уровень
+	# с тем же номером (game_active выставляется внутри load_level()).
+	load_level(current_level)
+
+# Удаляет все камни прошлого уровня перед генерацией новых. Обязательно
+# вызывать перед generate_rocks(), иначе камни будут копиться со сцены на
+# сцену (когда сцена больше не перезагружается сама).
+#
+# ВАЖНО: queue_free() удаляет ноду только в КОНЦЕ текущего кадра, а не
+# сразу. Если после clear_rocks() в этом же кадре тут же вызвать
+# generate_rocks(), новые камни на мгновение окажутся в сцене
+# ОДНОВРЕМЕННО со старыми (те технически ещё не удалены и всё ещё
+# участвуют в физике) - в тесной SpawnZone это даёт наложение коллайдеров
+# друг на друга, и когда игрок в этот момент задевает сразу два
+# перекрывшихся камня, move_and_slide() выталкивает его гораздо резче,
+# чем при обычном столкновении с одним камнем (ощущается как "слишком
+# резкий" отскок). Поэтому убираем камень из дерева НЕМЕДЛЕННО через
+# remove_child() (это сразу выключает его физику), а queue_free() только
+# освобождает память чуть позже.
+func clear_rocks() -> void:
+	for rock in spawned_rocks:
+		if is_instance_valid(rock):
+			var rock_parent := rock.get_parent()
+			if rock_parent:
+				rock_parent.remove_child(rock)
+			rock.queue_free()
+	spawned_rocks.clear()
+	rocks_positions.clear()
 
 func generate_rocks(count: int, parent: Node2D, zone: ReferenceRect) -> void:
 
 	# Список позиций - переменная автозагрузки Main, она переживает
 	# смену/перезапуск уровня. Если не чистить её перед новой генерацией,
 	# камни прошлого уровня будут "мешать" новым и генерация со временем
-	# сломается. Очищаем перед каждым вызовом.
+	# сломается. Очищаем перед каждым вызовом (также чистится в
+	# clear_rocks(), но оставляем и здесь на случай прямого вызова).
 	rocks_positions.clear()
 
 	# ReferenceRect - это Control, а Control.position - это координаты
@@ -170,3 +266,4 @@ func generate_rocks(count: int, parent: Node2D, zone: ReferenceRect) -> void:
 		rock.z_index = 1
 
 		parent.add_child(rock)
+		spawned_rocks.append(rock)

@@ -4,10 +4,13 @@ signal reroll_signal
 
 var on_continue = false
 
-# Сколько рероллов даётся игроку на один экран улучшений. Экран улучшений
-# показывается один раз за уровень (Hud пересоздаётся при смене уровня
-# вместе со сценой), поэтому лимит достаточно хранить прямо тут и
-# инициализировать значением по умолчанию.
+# Сколько рероллов даётся игроку на один экран улучшений.
+#
+# Раньше Hud пересоздавался при смене уровня вместе со сценой, поэтому
+# rerolls_left (и on_continue ниже) сами возвращались к значению по
+# умолчанию. Теперь Hud живёт всю игру, поэтому оба сбрасываются вручную
+# в _on_level_changed() при старте каждого нового уровня - см. подписку
+# на Main.level_changed в _ready().
 const MAX_REROLLS := 3
 var rerolls_left := MAX_REROLLS
 
@@ -26,6 +29,16 @@ func _ready() -> void:
 	#$UpgradeScreen/MainPanel/ContentMargin/MainVBox/CardHBox/UpgradeCard2.upgrade_click.connect(_on_upgradeclick)
 	#$UpgradeScreen/MainPanel/ContentMargin/MainVBox/CardHBox/UpgradeCard3.upgrade_click.connect(_on_upgradeclick)
 	
+	_update_reroll_button()
+	Main.level_changed.connect(_on_level_changed)
+
+func _on_level_changed(_level_num: int) -> void:
+	# Без этого сброса после первого же пройденного уровня on_continue
+	# остался бы true навсегда, и see_levelcomplete() перестал бы вообще
+	# показывать экран завершения уровня - игра выглядела бы "зависшей"
+	# сразу после уничтожения последнего камня на 2-м уровне.
+	on_continue = false
+	rerolls_left = MAX_REROLLS
 	_update_reroll_button()
 
 func _process(delta: float) -> void:
