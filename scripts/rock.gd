@@ -94,6 +94,9 @@ class ThrownRock extends Node2D:
 	var life_left: float = 2.5
 	var hit_radius: float = 24.0
 	var target: Node2D = null
+	# Камень-источник броска - передаётся в target.take_damage(), чтобы
+	# скилл ШИПЫ (player.gd) знал, кому вернуть часть урона.
+	var source_rock: Rock = null
 
 	func _ready() -> void:
 		var sprite := Sprite2D.new()
@@ -113,9 +116,18 @@ class ThrownRock extends Node2D:
 		if is_instance_valid(target):
 			if global_position.distance_to(target.global_position) <= hit_radius:
 				if target.has_method("take_damage"):
-					target.take_damage(damage)
+					target.take_damage(damage, source_rock)
 				queue_free()
 
+
+# --- Параметры скиллов, влияющих на разрушение камня (см. take_damage()
+# ниже). Сами скиллы описаны/продаются в upgrade_card.gd, здесь только
+# их игровой эффект - has_skill() проверяется отдельно для каждого, т.к.
+# скиллы не исключают друг друга (можно купить оба).
+const EXPLOSIVE_KILL_CHANCE: float = 0.25       # шанс сдетонировать при убийстве
+const EXPLOSIVE_KILL_RADIUS: float = 140.0      # радиус, в котором задевает соседние камни
+const EXPLOSIVE_KILL_DAMAGE_FRACTION: float = 0.5 # урон взрыва = доля от Main.damage
+const MONEY_MAGNET_FLAT_BONUS: float = 1.0      # плоский бонус монет за камень, не масштабируется money_multiplier
 
 @export var max_health: float = 10
 var health: float
@@ -273,7 +285,7 @@ func _attack_player() -> void:
 	if type == alive_thrower_index:
 		_throw_rock_at_player(scaled_damage)
 	elif player_ref.has_method("take_damage"):
-		player_ref.take_damage(scaled_damage)
+		player_ref.take_damage(scaled_damage, self)
 
 	# Переиспользуем существующую тряску как визуальный отклик на атаку -
 	# камень "дёргается" в сторону игрока в момент удара.
@@ -290,6 +302,7 @@ func _throw_rock_at_player(damage: float) -> void:
 	var projectile := ThrownRock.new()
 	projectile.damage = damage
 	projectile.target = player_ref
+	projectile.source_rock = self
 
 	var direction: Vector2 = global_position.direction_to(player_ref.global_position)
 	projectile.velocity = direction * alive_projectile_speed[type]
@@ -395,6 +408,39 @@ func take_damage(amount: float) -> void:
 		Main.money += total_reward
 		Main.left_rocks -= 1
 		Main.destroyed_rocks += 1
+
+		# Скилл "ЖАДНОСТЬ" - плоская монета за КАЖДЫЙ разрушенный камень,
+		# независимо от типа и money_multiplier (тот уже применён выше
+		# к base_reward). Флэт-бонус нужен, чтобы скилл давал ощутимый
+		# профит и на ранних уровнях, где money_multiplier ещё мал.
+		if Main.has_skill("money_magnet"):
+			Main.getted_money += MONEY_MAGNET_FLAT_BONUS
+			Main.money += MONEY_MAGNET_FLAT_BONUS
+
+		# Скилл "ЦЕПНАЯ РЕАКЦИЯ" - разрушенный камень может задеть соседей.
+		# Вызываем в конце, после начисления награды за ЭТОТ камень, чтобы
+		# порядок начислений был предсказуемым, даже если взрыв тут же
+		# убьёт ещё один камень (и рекурсивно вызовет take_damage() у него).
+		if Main.has_skill("explosive_kill") and randf() <= EXPLOSIVE_KILL_CHANCE:
+			_trigger_chain_explosion()
+
+# Наносит урон всем ещё живым камням в радиусе EXPLOSIVE_KILL_RADIUS от
+# только что разрушенного камня. Использует Main.spawned_rocks (общий
+# список камней текущего уровня, см. main.gd), а не сигналы/области, т.к.
+# отдельного Area2D для взрыва у камня нет. Рекурсивен по своей природе:
+# если взрыв убьёт ещё один камень со включённым скиллом, тот запустит
+# свою собственную детонацию - и это осознанно совпадает с флейвором
+# "цепной реакции", а не баг. Бесконечный цикл не грозит: список живых
+# камней конечен и каждый камень удаляется из дерева сразу при своей
+# смерти (queue_free() внутри take_damage()).
+func _trigger_chain_explosion() -> void:
+	var splash_damage: float = Main.damage * EXPLOSIVE_KILL_DAMAGE_FRACTION
+	for other_rock in Main.spawned_rocks:
+		if not is_instance_valid(other_rock) or other_rock == self:
+			continue
+		if other_rock.global_position.distance_to(global_position) <= EXPLOSIVE_KILL_RADIUS:
+			if other_rock.has_method("take_damage"):
+				other_rock.take_damage(splash_damage)
 
 func shake():
 	

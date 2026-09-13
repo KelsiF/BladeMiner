@@ -54,7 +54,7 @@ func _process(delta: float) -> void:
 	
 	see_levelcomplete()
 	
-	$DebugLabel.text = "max_health: "+str(Main.max_health)+"\nchance_crit: "+str(Main.chance_crit)+" -> "+str(Main.chance_crit*100)+"%"+"\ncrit_multiplier: "+str(Main.crit_multiplier)+" ->"+str((Main.crit_multiplier-1)*100)+"%"
+	$DebugLabel.text = "max_health: "+str(Main.max_health)+"\nchance_crit: "+str(Main.chance_crit)+" -> "+str(Main.chance_crit*100)+"%"+"\ncrit_multiplier: "+str(Main.crit_multiplier)+" ->"+str((Main.crit_multiplier-1)*100)+"%"+"\natk_speed_mult: x"+str(Main.attack_speed_mult)+"\nlifesteal: "+str(Main.lifesteal*100)+"%"+"\ndodge_chance: "+str(Main.dodge_chance*100)+"%"+"\nregen_mult: x"+str(Main.regen_mult)+"\nmove_speed_mult: x"+str(Main.move_speed_mult)+"\nskills: "+str(Main.unlocked_skills.keys())
 
 func see_levelcomplete():
 	if Main.game_active == false:

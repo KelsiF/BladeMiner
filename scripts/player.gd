@@ -2,15 +2,27 @@ extends CharacterBody2D
 
 signal player_died
 
-@export var move_speed: float = 300.0      # скорость перемещения к курсору
-@export var rotation_speed: float = 10.0   # скорость вращения спрайта (рад/сек)
-@export var stop_distance: float = 5.0     # дистанция, при которой персонаж останавливается
+# base_move_speed/base_damage_cooldown - значения ДО баффов скорости
+# атаки/передвижения (Main.attack_speed_mult/Main.move_speed_mult).
+# move_speed/damage_cooldown ниже - их эффективные (пересчитанные)
+# версии, которые и использует весь остальной код файла - этим двум
+# переменным баффы раньше просто некуда было писать.
+@export var base_move_speed: float = 300.0      # базовая скорость перемещения к курсору
+@export var rotation_speed: float = 10.0        # скорость вращения спрайта (рад/сек)
+@export var stop_distance: float = 5.0          # дистанция, при которой персонаж останавливается
 
-@export var knockback_force: float = 400.0
-@export var knockback_duration: float = 0.2
-@export var damage_cooldown: float = 0.5   # чтобы урон не наносился каждый кадр
+@export var knockback_force: float = 100.0
+@export var knockback_duration: float = 0.5
+@export var base_damage_cooldown: float = 0.5   # базовый кулдаун урона, чтобы урон не наносился каждый кадр
+
+# Доля урона, которую скилл "ШИПЫ" (thorns) возвращает атаковавшему
+# ожившему камню - см. take_damage() ниже и Main.has_skill().
+const THORNS_REFLECT_PERCENT: float = 0.20
 
 @onready var sprite: Sprite2D = $Sprite2D
+
+var move_speed: float = 300.0
+var damage_cooldown: float = 0.5
 
 var knockback_velocity: Vector2 = Vector2.ZERO
 var knockback_timer: float = 0.0
@@ -41,6 +53,13 @@ func _on_level_changed(_level_num: int) -> void:
 func _sync_stats() -> void:
 	max_health = Main.max_health
 	health = max_health
+
+	# Раньше баффы скорости атаки/передвижения не существовали, поэтому
+	# move_speed/damage_cooldown были константами на всю игру. Теперь
+	# пересчитываем их из базовых значений на каждый Main.level_changed -
+	# ровно там же, где до этого синхронизировались health/max_health.
+	move_speed = base_move_speed * Main.move_speed_mult
+	damage_cooldown = base_damage_cooldown / Main.attack_speed_mult
 
 	$HealthBar.max_value = max_health
 	$HealthBar.value = health
@@ -78,8 +97,33 @@ func _physics_process(delta: float) -> void:
 # max_health, но ничего в игре реально не наносило игроку урон, поэтому
 # здоровье никогда не тратилось. Теперь ожившие камни (rock.gd) зовут этот
 # метод при атаке, и здоровье игрока действительно становится ресурсом.
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, attacker: Node = null) -> void:
 	if not Main.game_active:
+		return
+
+	# Уклонение проверяем первым: если удар избегается полностью, то и
+	# шипы (которые реагируют именно на ПОЛУЧЕННЫЙ урон) срабатывать не
+	# должны, и второе дыхание тратить незачем.
+	if randf() <= Main.dodge_chance:
+		_flash_dodge()
+		return
+
+	# Скилл "ШИПЫ" - часть полученного урона возвращается атакующему
+	# камню. attacker передают rock.gd (_attack_player) и ThrownRock -
+	# для обычных статичных камней (default/strong/big) attacker всегда
+	# null, они и так не атакуют.
+	if Main.has_skill("thorns") and attacker != null and attacker.has_method("take_damage"):
+		attacker.take_damage(amount * THORNS_REFLECT_PERCENT)
+
+	# Скилл "ВТОРОЕ ДЫХАНИЕ" - одна гарантированная жизнь на всю игру:
+	# смертельный удар оставляет 30% здоровья вместо убийства. Флаг
+	# second_wind_used хранится в Main (а не здесь), т.к. персонаж один
+	# на всю игру и не пересоздаётся между уровнями.
+	if Main.has_skill("second_wind") and not Main.second_wind_used and amount >= health:
+		Main.second_wind_used = true
+		health = max_health * 0.3
+		$HealthBar.value = health
+		_flash_damage()
 		return
 
 	health -= amount
@@ -97,6 +141,14 @@ func _flash_damage() -> void:
 	sprite.modulate = Color(1.0, 0.35, 0.35)
 	var tween := create_tween()
 	tween.tween_property(sprite, "modulate", Color(1, 1, 1), 0.2)
+
+# Короткая вспышка цвета спрайта для баффа "УКЛОНЕНИЕ" - иначе избежание
+# удара визуально ничем не отличалось бы от того, что камень просто
+# промахнулся мимо игрока по расстоянию.
+func _flash_dodge() -> void:
+	sprite.modulate = Color(0.6, 0.85, 1.0)
+	var tween := create_tween()
+	tween.tween_property(sprite, "modulate", Color(1, 1, 1), 0.15)
 
 func _die() -> void:
 	player_died.emit()
@@ -140,8 +192,18 @@ func _handle_collisions() -> void:
 				# игрока (при перезапуске сцены - заново). Теперь читаем
 				# Main.damage прямо в момент удара, иначе купленные в
 				# апгрейд-магазине бонусы к урону не доходили бы до боя.
-				collider.take_damage(Main.damage)
+				var dealt_damage: float = Main.damage
+				collider.take_damage(dealt_damage)
 				damage_timers[id] = damage_cooldown
+
+				# Бафф "ВАМПИРИЗМ" - лечим часть НАНЕСЁННОГО (не входящего)
+				# урона. Считаем от номинального Main.damage, а не от
+				# фактического урона по HP камня (то есть без учёта
+				# "срезания" урона у почти мёртвого камня) - иначе
+				# добивающий удар лечил бы на копейки без всякой причины.
+				if Main.lifesteal > 0.0:
+					health = clamp(health + dealt_damage * Main.lifesteal, 0.0, max_health)
+					$HealthBar.value = health
 
 				# Отскок в сторону от точки столкновения
 				var push_dir: Vector2 = (global_position - collision.get_position()).normalized()
@@ -154,8 +216,12 @@ func _handle_collisions() -> void:
 
 func _on_heal_timer_timeout() -> void:
 	if health < max_health:
-		health = health+(max_health*0.05)
-		print("heal! "+str(health+(max_health*0.05)))
+		# База - 5% от максимума за тик, как и раньше; Main.regen_mult -
+		# накопленный бафф "РЕГЕНЕРАЦИЯ" (1.0 = бафф не куплен, поведение
+		# не меняется).
+		var heal_amount: float = max_health * 0.05 * Main.regen_mult
+		health = health + heal_amount
+		print("heal! "+str(health))
 		if health > max_health:
 			health = max_health
 	else:

@@ -23,13 +23,50 @@ signal level_changed(level_num: int)
 
 var current_level = 1
 
+# --- Базовые значения статов и их накопленные множители.
+#
+# Раньше "УРОН" и "ЗДОРОВЬЕ" прибавлялись прямым умножением (damage =
+# damage*(1+value/100)) без всякого убывающей полезности, в отличие от
+# chance_crit/crit_multiplier/money_multiplier. На дистанции игры это
+# делало их СТРОГО сильнее остальных баффов той же редкости: компаунд без
+# потолка всегда обгоняет компаунд с убыванием. Теперь оба стата работают
+# по той же схеме "база * накопленный множитель" с той же формулой
+# apply_diminishing_multiplier(), что и money_multiplier/crit_multiplier.
+#
+# base_damage/base_max_health - точка отсчёта (соответствует множителю
+# 1.0), damage/max_health - то, что по-прежнему читает весь остальной
+# код (rock.gd, player.gd) - их семантика для потребителей не изменилась,
+# менять нужно было только то, ЧТО их увеличивает (см. upgrade_card.gd).
+var base_damage = 100.0
 var damage = 100.0
+var damage_mult = 1.0
+
+var base_max_health = 30.0
 var max_health = 30.0
+var health_mult = 1.0
+
 var chance_crit = 0.025
 var crit_multiplier = 1.25
-var move_speed = 300.0
+
+# Раньше move_speed была объявлена, но нигде не использовалась - у
+# player.gd была своя независимая @export move_speed, и баффа скорости
+# передвижения не существовало вовсе. move_speed_mult - реальный
+# накопленный бонус к скорости; player.gd умножает на него свою базовую
+# скорость в _sync_stats().
+var move_speed_mult = 1.0
+
 var money_multiplier = 1.0
 var money = 0.0
+
+# --- Новые статы для новых баффов (см. upgrade_card.gd). Та же логика
+# убывающей полезности, что и у остальных процентных баффов выше:
+# lifesteal/dodge_chance - "честный потолок" (это вероятности/доли),
+# attack_speed_mult/regen_mult - множители без потолка через
+# apply_diminishing_multiplier(), как money_multiplier/crit_multiplier.
+var attack_speed_mult = 1.0   # делит damage_cooldown игрока - чем выше, тем чаще бьём
+var lifesteal = 0.0           # доля нанесённого урона, возвращаемая игроку здоровьем
+var dodge_chance = 0.0        # шанс полностью избежать входящего урона
+var regen_mult = 1.0          # множитель силы пассивной регенерации (см. HealTimer в player.gd)
 
 # --- Убывающая полезность для процентных баффов (шанс крита, урон
 # крита, доход). Раньше каждый бафф прибавлял/умножал на фиксированный
@@ -53,6 +90,17 @@ var money = 0.0
 const CRIT_CHANCE_CAP: float = 0.75
 const CRIT_DAMAGE_DIMINISH_K: float = 1.0
 const MONEY_MULT_DIMINISH_K: float = 1.0
+
+# Новые K/CAP для баффов, введённых вместе со скиллами (см. комментарий
+# у damage_mult/health_mult выше и у apply_diminishing_* ниже).
+const DAMAGE_DIMINISH_K: float = 1.0
+const HEALTH_DIMINISH_K: float = 1.0
+const ATTACK_SPEED_DIMINISH_K: float = 1.0
+const REGEN_DIMINISH_K: float = 1.0
+const MOVE_SPEED_DIMINISH_K: float = 1.0
+const LIFESTEAL_CAP: float = 0.20     # честный потолок: макс. 20% урона возвращается здоровьем
+const DODGE_CHANCE_CAP: float = 0.40  # честный потолок: макс. 40% шанс полностью избежать урона
+
 const STAT_ROUND_STEP: float = 0.0001
 
 # Применяется к величинам с честным потолком (сейчас - только chance_crit).
@@ -74,6 +122,22 @@ func apply_diminishing_multiplier(current: float, raw_fraction: float, k: float)
 	var increment = raw_fraction / (1.0 + current_bonus * k)
 	var new_bonus = current_bonus + increment
 	return snappedf(1.0 + new_bonus, STAT_ROUND_STEP)
+
+
+# --- Скиллы: уникальные пассивки, в отличие от баффов выше их нельзя
+# купить больше одного раза за игру (список и описания эффектов - в
+# upgrade_card.gd, здесь только сам факт "куплен/не куплен", потому что
+# это общее игровое состояние: его должны видеть и player.gd (second_wind,
+# thorns), и rock.gd (explosive_kill, money_magnet), и upgrade_card.gd
+# (чтобы не предлагать уже купленный скилл повторно).
+var unlocked_skills: Dictionary = {}
+var second_wind_used: bool = false
+
+func has_skill(skill_id: String) -> bool:
+	return unlocked_skills.has(skill_id)
+
+func unlock_skill(skill_id: String) -> void:
+	unlocked_skills[skill_id] = true
 
 
 # --- Параметры "ощущения" уровня, которые задаёт level.gd в start_level()
