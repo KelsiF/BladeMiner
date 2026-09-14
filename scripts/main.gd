@@ -338,3 +338,55 @@ func generate_rocks(count: int, parent: Node2D, zone: ReferenceRect) -> void:
 
 		parent.add_child(rock)
 		spawned_rocks.append(rock)
+
+
+# --- Полный сброс игрового состояния для старта новой игры с главного
+# меню (menu.gd). Main - автозагрузка и не пересоздаётся между
+# сессиями, поэтому без явного сброса вторая и последующие партии в
+# рамках одного запуска игры начинались бы с деньгами/уроном/скиллами,
+# оставшимися от предыдущей игры. Значения ниже продублированы с
+# объявлений переменных выше (это их изначальные дефолты).
+func reset_game() -> void:
+	current_level = 1
+	game_active = true
+
+	damage = 10.0
+	damage_mult = 1.0
+
+	max_health = base_max_health
+	health_mult = 1.0
+
+	chance_crit = 0.025
+	crit_multiplier = 1.25
+
+	move_speed_mult = 1.0
+
+	money_multiplier = 1.0
+	money = 0.0
+
+	attack_speed_mult = 1.0
+	lifesteal = 0.0
+	dodge_chance = 0.0
+	regen_mult = 1.0
+
+	unlocked_skills.clear()
+	second_wind_used = false
+
+	current_type_weights = [1, 1, 1, 0, 0, 0]
+	level_hp_multiplier_extra = 1.0
+	level_money_multiplier_extra = 1.0
+
+	need_rocks = 15
+	left_rocks = 15
+	destroyed_rocks = 0
+	getted_money = 0
+
+	# spawned_rocks/rocks_positions относятся к камням ПРЕДЫДУЩЕЙ игры.
+	# Сама смена сцены (menu.gd -> level1.tscn) уже уничтожит эти ноды
+	# вместе со старым деревом сцены, но ссылки на них в этих массивах
+	# нужно почистить явно, иначе clear_rocks()/generate_rocks() на
+	# новом уровне будут читать невалидные (уже свободные) инстансы.
+	spawned_rocks.clear()
+	rocks_positions.clear()
+
+	level_controller = null

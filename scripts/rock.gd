@@ -318,9 +318,10 @@ func damage_text(amount: float, is_crit: bool = false):
 	
 	if is_crit:
 		var icon := TextureRect.new()
-		icon.texture = preload("res://sprites/rock.png")
+		icon.texture = preload("res://sprites/crit_icon.png")
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.custom_minimum_size = Vector2(28, 28)
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		container.add_child(icon)
 	
 	

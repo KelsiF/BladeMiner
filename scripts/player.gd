@@ -216,14 +216,13 @@ func _handle_collisions() -> void:
 
 func _on_heal_timer_timeout() -> void:
 	if health < max_health:
-		# База - 5% от максимума за тик, как и раньше; Main.regen_mult -
+		# База - 1% от максимума за тик, как и раньше; Main.regen_mult -
 		# накопленный бафф "РЕГЕНЕРАЦИЯ" (1.0 = бафф не куплен, поведение
 		# не меняется).
-		var heal_amount: float = max_health * 0.05 * Main.regen_mult
+		var heal_amount: float = max_health * 0.01 * Main.regen_mult
 		health = health + heal_amount
 		print("heal! "+str(health))
 		if health > max_health:
 			health = max_health
 	else:
 		print("хп полное!")
-	$HealTimer.start()

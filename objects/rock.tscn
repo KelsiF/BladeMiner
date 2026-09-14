@@ -2,7 +2,11 @@
 
 [ext_resource type="Texture2D" uid="uid://c0tw54pk6sh2t" path="res://sprites/rock.png" id="1_d1bt4"]
 [ext_resource type="Script" uid="uid://beo1xndurapcr" path="res://scripts/rock.gd" id="1_dh84n"]
-[ext_resource type="StyleBox" uid="uid://crclapvfdfvrr" path="res://new_style_box_flat.tres" id="3_lc31t"]
+[ext_resource type="Texture2D" uid="uid://cblfwa3qwvnu5" path="res://sprites/rockhealthbar_under.png" id="3_yld6o"]
+[ext_resource type="Texture2D" uid="uid://cnsykgrqjt3cx" path="res://sprites/rockhealthbar_fill.png" id="4_18nrk"]
+
+[sub_resource type="OccluderPolygon2D" id="OccluderPolygon2D_yld6o"]
+polygon = PackedVector2Array(-9, -1, -9, -6, -8, -6, -8, -9, -7, -9, -7, -10, -4.5, -10, -4.5, -11, 2, -11, 2, -10, 4, -10, 4, -8.5, 5, -9, 5, -7.5, 6, -7, 6, -5, 7, -5, 8, -3.5, 8.5, -2, 10, -2, 10, 2.5, 8.5, 5.5, 7.5, 8, 6, 10, 3.5, 11.5, -0.5, 12, -2.5, 11, -6, 10, -8, 7.5, -9.5, 4.5, -11, 2.5)
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_wrsvn"]
 radius = 11.0
@@ -17,9 +21,21 @@ colors = PackedColorArray(0.24719188, 0.2471919, 0.24719188, 1, 0.6872149, 0.687
 [sub_resource type="Gradient" id="Gradient_spark"]
 colors = PackedColorArray(1, 1, 0.6, 1, 1, 0.7, 0.1, 0)
 
+[sub_resource type="Gradient" id="Gradient_yld6o"]
+colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_18nrk"]
+gradient = SubResource("Gradient_yld6o")
+fill = 1
+fill_from = Vector2(0.5, 0.4)
+fill_to = Vector2(0.2, 0.2)
+
 [node name="Rock" type="StaticBody2D" unique_id=88790037]
 scale = Vector2(2, 2)
 script = ExtResource("1_dh84n")
+
+[node name="LightOccluder2D" type="LightOccluder2D" parent="." unique_id=1346930196]
+occluder = SubResource("OccluderPolygon2D_yld6o")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=2041022954]
 texture_filter = 1
@@ -110,12 +126,16 @@ damping_max = 80.0
 scale_amount_max = 3.0
 color_ramp = SubResource("Gradient_spark")
 
-[node name="HealthBar" type="ProgressBar" parent="." unique_id=725812642]
-offset_left = -8.0
+[node name="HealthBar" type="TextureProgressBar" parent="." unique_id=547692612]
+texture_filter = 1
+offset_left = -24.0
 offset_top = -20.0
-offset_right = 56.0
-offset_bottom = 7.0
-scale = Vector2(0.25, 0.25)
-theme_override_styles/fill = ExtResource("3_lc31t")
-value = 9.64
-show_percentage = false
+offset_right = 23.0
+offset_bottom = -12.0
+texture_under = ExtResource("3_yld6o")
+texture_progress = ExtResource("4_18nrk")
+texture_progress_offset = Vector2(16, 1)
+
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=1555420735]
+energy = 0.5
+texture = SubResource("GradientTexture2D_18nrk")
